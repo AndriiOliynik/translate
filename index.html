@@ -1,86 +1,173 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Изучение слов</title>
+    <title>Quiz App</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>
-body 
-{
-background-color:black;
-color:white;
-text-align:center;
-font-size:140%;
-}
-</style>
     <script>
-        let words = [];
-        let currentIndex = 0;
+        let questions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let voices = [];
+        let selectedVoice = null;
+        let speechRate = 1;
 
-        function loadFile(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+        function populateVoices() {
+            voices = window.speechSynthesis.getVoices();
+            const voiceSelect = document.getElementById('voiceSelect');
+            voiceSelect.innerHTML = '';
+            voices.forEach((voice, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                voiceSelect.appendChild(option);
+            });
+            selectedVoice = voices[0];
+        }
 
+        window.speechSynthesis.onvoiceschanged = populateVoices;
+
+        function loadQuestionsFromTxt(file) {
+            file.text().then(text => {
+                questions = text.trim().split('\n').map(line => {
+                    const [word, translation] = line.split(';');
+                    return { word: word.trim(), translation: translation.trim() };
+                });
+                prepareQuiz();
+            });
+        }
+
+        function loadQuestionsFromXlsx(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                words = XLSX.utils.sheet_to_json(sheet);
-                currentIndex = 0;
-                showWord();
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                questions = rows.map(row => ({ word: row[0]?.trim(), translation: row[1]?.trim() })).filter(q => q.word && q.translation);
+                prepareQuiz();
             };
             reader.readAsArrayBuffer(file);
         }
 
-        function showWord() {
-            if (words.length === 0) {
-                document.getElementById('word').innerText = "Загрузите файл";
-                document.getElementById('translation').innerText = "";
-                document.getElementById('audio').src = "";
+        function prepareQuiz() {
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('score').innerText = `Счет: 0 / ${questions.length}`;
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function displayQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                alert(`Викторина завершена! Ваш результат: ${score} из ${questions.length}`);
                 return;
             }
-            const currentWord = words[currentIndex];
-            document.getElementById('word').innerText = currentWord.Word || "Не найдено";
-            document.getElementById('translation').innerText = "?";
-            document.getElementById('audio').src = currentWord.Audio || "";
-        }
 
-        function showTranslation() {
-            if (words.length === 0) return;
-            document.getElementById('translation').innerText = words[currentIndex].Translation || "Не найдено";
-            speak(words[currentIndex].Translation || "");
-        }
+            const currentQuestion = questions[currentQuestionIndex];
+            const answers = [currentQuestion.translation];
 
-        function nextWord() {
-            if (words.length === 0) return;
-            currentIndex = (currentIndex + 1) % words.length;
-            showWord();
-        }
-
-        function speak(text) {
-            let msg = new SpeechSynthesisUtterance(text);
-            window.speechSynthesis.speak(msg);
-        }
-
-        function playAudio() {
-            const audioElement = document.getElementById('audio');
-            if (audioElement.src) {
-                audioElement.play();
+            while (answers.length < 4) {
+                const randomTranslation = questions[Math.floor(Math.random() * questions.length)].translation;
+                if (!answers.includes(randomTranslation)) {
+                    answers.push(randomTranslation);
+                }
             }
+
+            shuffle(answers);
+
+            const questionContainer = document.getElementById('questionContainer');
+            questionContainer.innerHTML = `<h3>Как переводится слово: <strong>${currentQuestion.word}</strong>?</h3>`;
+
+            const buttons = answers.map(answer => {
+                return `<button class="answerBtn" onclick="checkAnswer(this, '${currentQuestion.translation}')">${answer}</button>`;
+            }).join('');
+
+            questionContainer.innerHTML += buttons;
+        }
+
+        function speakText(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ru-RU';
+            utterance.voice = selectedVoice;
+            utterance.rate = speechRate;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function checkAnswer(button, correctAnswer) {
+            if (button.innerText === correctAnswer) {
+                button.style.backgroundColor = 'green';
+                score++;
+            } else {
+                button.style.backgroundColor = 'red';
+            }
+
+            document.getElementById('score').innerText = `Счет: ${score} / ${questions.length}`;
+            speakText(correctAnswer);
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                displayQuestion();
+            }, 1500);
+        }
+
+        function resetQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            document.getElementById('score').innerText = `Счет: 0 / ${questions.length}`;
+            document.getElementById('questionContainer').innerHTML = '';
+        }
+
+        function changeVoice(index) {
+            selectedVoice = voices[index];
+        }
+
+        function changeRate(rate) {
+            speechRate = rate;
         }
     </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button.answerBtn {
+            background-color: lightgray;
+            transition: background-color 0.3s;
+        }
+    </style>
 </head>
 <body>
-    <h1>Изучение слов</h1>
-    <input type="file" accept=".xlsx" onchange="loadFile(event)">
-    <h2 id="word">Загрузите файл</h2>
-    <h3 id="translation">?</h3>
-    <button onclick="showTranslation()">Показать перевод</button>
-    <button onclick="nextWord()">Следующее слово</button>
-    <button onclick="speak(document.getElementById('word').innerText)">Озвучить слово</button>
-    <button onclick="playAudio()">Воспроизвести аудио</button>
-    <audio id="audio" controls style="display:none;"></audio>
+    <input type="file" accept=".txt, .xlsx" onchange="this.files[0].name.endsWith('.xlsx') ? loadQuestionsFromXlsx(this.files[0]) : loadQuestionsFromTxt(this.files[0])">
+    <button id="startBtn" onclick="displayQuestion()" disabled>Старт</button>
+    <button onclick="resetQuiz()">Сброс</button>
+    <div id="score">Счет: 0 / 0</div>
+    <div>
+        <label for="voiceSelect">Голос:</label>
+        <select id="voiceSelect" onchange="changeVoice(this.value)"></select>
+    </div>
+    <div>
+        <label for="rateRange">Скорость:</label>
+        <input type="range" id="rateRange" min="0.5" max="2" value="1" step="0.1" oninput="changeRate(this.value)">
+    </div>
+    <div id="questionContainer"></div>
 </body>
 </html>
