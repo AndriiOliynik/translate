@@ -12,6 +12,7 @@
         let voices = [];
         let selectedVoice = null;
         let speechRate = 1;
+        let swapped = false;
 
         function populateVoices() {
             voices = window.speechSynthesis.getVoices();
@@ -31,7 +32,8 @@
         function loadQuestionsFromTxt(file) {
             file.text().then(text => {
                 questions = text.trim().split('\n').map(line => {
-                    const [word, translation] = line.split(';');
+                    let delimiter = line.includes(';') ? ';' : '/';
+                    const [word, translation] = line.split(delimiter);
                     return { word: word.trim(), translation: translation.trim() };
                 });
                 prepareQuiz();
@@ -85,10 +87,13 @@
             shuffle(answers);
 
             const questionContainer = document.getElementById('questionContainer');
-            questionContainer.innerHTML = `<h3>Как переводится слово: <strong>${currentQuestion.word}</strong>?</h3>`;
+            const questionText = swapped ? currentQuestion.translation : currentQuestion.word;
+            const correctAnswer = swapped ? currentQuestion.word : currentQuestion.translation;
+
+            questionContainer.innerHTML = `<h3>Как переводится слово: <strong>${questionText}</strong>?</h3>`;
 
             const buttons = answers.map(answer => {
-                return `<button class="answerBtn" onclick="checkAnswer(this, '${currentQuestion.translation}')">${answer}</button>`;
+                return `<button class="answerBtn" onclick="checkAnswer(this, '${correctAnswer}')">${answer}</button>`;
             }).join('');
 
             questionContainer.innerHTML += buttons;
@@ -133,6 +138,11 @@
         function changeRate(rate) {
             speechRate = rate;
         }
+
+        function swapWords() {
+            swapped = !swapped;
+            resetQuiz();
+        }
     </script>
     <style>
         body {
@@ -159,6 +169,7 @@
     <input type="file" accept=".txt, .xlsx" onchange="this.files[0].name.endsWith('.xlsx') ? loadQuestionsFromXlsx(this.files[0]) : loadQuestionsFromTxt(this.files[0])">
     <button id="startBtn" onclick="displayQuestion()" disabled>Старт</button>
     <button onclick="resetQuiz()">Сброс</button>
+    <button onclick="swapWords()">Сменить местами слово и перевод</button>
     <div id="score">Счет: 0 / 0</div>
     <div>
         <label for="voiceSelect">Голос:</label>
