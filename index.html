@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Изучение слов</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body 
+{
+background-color:black;
+color:white;
+text-align:center;
+font-size:140%;
+}
+</style>
+    <script>
+        let words = [];
+        let currentIndex = 0;
+
+        function loadFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                words = XLSX.utils.sheet_to_json(sheet);
+                currentIndex = 0;
+                showWord();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function showWord() {
+            if (words.length === 0) {
+                document.getElementById('word').innerText = "Загрузите файл";
+                document.getElementById('translation').innerText = "";
+                document.getElementById('audio').src = "";
+                return;
+            }
+            const currentWord = words[currentIndex];
+            document.getElementById('word').innerText = currentWord.Word || "Не найдено";
+            document.getElementById('translation').innerText = "?";
+            document.getElementById('audio').src = currentWord.Audio || "";
+        }
+
+        function showTranslation() {
+            if (words.length === 0) return;
+            document.getElementById('translation').innerText = words[currentIndex].Translation || "Не найдено";
+            speak(words[currentIndex].Translation || "");
+        }
+
+        function nextWord() {
+            if (words.length === 0) return;
+            currentIndex = (currentIndex + 1) % words.length;
+            showWord();
+        }
+
+        function speak(text) {
+            let msg = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(msg);
+        }
+
+        function playAudio() {
+            const audioElement = document.getElementById('audio');
+            if (audioElement.src) {
+                audioElement.play();
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Изучение слов</h1>
+    <input type="file" accept=".xlsx" onchange="loadFile(event)">
+    <h2 id="word">Загрузите файл</h2>
+    <h3 id="translation">?</h3>
+    <button onclick="showTranslation()">Показать перевод</button>
+    <button onclick="nextWord()">Следующее слово</button>
+    <button onclick="speak(document.getElementById('word').innerText)">Озвучить слово</button>
+    <button onclick="playAudio()">Воспроизвести аудио</button>
+    <audio id="audio" controls style="display:none;"></audio>
+</body>
+</html>
