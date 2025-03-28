@@ -75,10 +75,10 @@
             }
 
             const currentQuestion = questions[currentQuestionIndex];
-            const answers = [currentQuestion.translation];
+            const answers = [swapped ? currentQuestion.word : currentQuestion.translation];
 
             while (answers.length < 4) {
-                const randomTranslation = questions[Math.floor(Math.random() * questions.length)].translation;
+                const randomTranslation = swapped ? questions[Math.floor(Math.random() * questions.length)].word : questions[Math.floor(Math.random() * questions.length)].translation;
                 if (!answers.includes(randomTranslation)) {
                     answers.push(randomTranslation);
                 }
@@ -90,7 +90,7 @@
             const questionText = swapped ? currentQuestion.translation : currentQuestion.word;
             const correctAnswer = swapped ? currentQuestion.word : currentQuestion.translation;
 
-            questionContainer.innerHTML = `<h3>Как переводится слово: <strong>${questionText}</strong>?</h3>`;
+            questionContainer.innerHTML = `<h3>Как переводится слово: <strong>${questionText}</strong> </h3>`;
 
             const buttons = answers.map(answer => {
                 return `<button class="answerBtn" onclick="checkAnswer(this, '${correctAnswer}')">${answer}</button>`;
@@ -121,7 +121,7 @@
             setTimeout(() => {
                 currentQuestionIndex++;
                 displayQuestion();
-            }, 1500);
+            }, 3500);
         }
 
         function resetQuiz() {
@@ -142,6 +142,7 @@
         function swapWords() {
             swapped = !swapped;
             resetQuiz();
+            displayQuestion();
         }
     </script>
     <style>
